@@ -1,7 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { Toaster } from "@/components/ui/sonner";
 import "../styles/global.css";
 ---
 
 <Layout>
+  <Toaster richColors client:only="react"/ >
  </Layout>
