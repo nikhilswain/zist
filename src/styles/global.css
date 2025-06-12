@@ -116,5 +116,113 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
+}
+
+/* Apple-inspired design elements */
+.apple-card {
+  @apply bg-card rounded-xl border-0 shadow-sm;
+  backdrop-filter: blur(10px);
+}
+
+.apple-card.dark {
+  background: rgba(35, 35, 40, 0.8);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+.apple-blur {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.apple-gradient {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.05)
+  );
+}
+
+.dark .apple-gradient {
+  background: linear-gradient(
+    135deg,
+    rgba(60, 60, 70, 0.2),
+    rgba(40, 40, 50, 0.1)
+  );
+}
+
+/* Smooth transitions */
+.transition-all {
+  transition-duration: 300ms;
+}
+
+/* Board color themes */
+.board-theme-blue {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 64, 175, 0.15),
+    rgba(30, 58, 138, 0.05)
+  );
+}
+
+.board-theme-purple {
+  background: linear-gradient(
+    135deg,
+    rgba(126, 34, 206, 0.15),
+    rgba(107, 33, 168, 0.05)
+  );
+}
+
+.board-theme-green {
+  background: linear-gradient(
+    135deg,
+    rgba(21, 128, 61, 0.15),
+    rgba(22, 101, 52, 0.05)
+  );
+}
+
+.board-theme-amber {
+  background: linear-gradient(
+    135deg,
+    rgba(180, 83, 9, 0.15),
+    rgba(146, 64, 14, 0.05)
+  );
+}
+
+.board-theme-rose {
+  background: linear-gradient(
+    135deg,
+    rgba(190, 18, 60, 0.15),
+    rgba(159, 18, 57, 0.05)
+  );
+}
+
+.board-theme-cyan {
+  background: linear-gradient(
+    135deg,
+    rgba(8, 145, 178, 0.15),
+    rgba(14, 116, 144, 0.05)
+  );
+}
+
+.board-theme-slate {
+  background: linear-gradient(
+    135deg,
+    rgba(71, 85, 105, 0.15),
+    rgba(51, 65, 85, 0.05)
+  );
+}
+
+/* Dragging styles */
+.dragging {
+  @apply shadow-lg z-50;
+  transform: scale(1.02);
+  opacity: 0.9;
+  cursor: grabbing;
+}
+
+.drag-overlay {
+  @apply shadow-xl z-[100];
+  cursor: grabbing;
 }
