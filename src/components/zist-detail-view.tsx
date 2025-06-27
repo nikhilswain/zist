@@ -636,7 +636,7 @@ export function ZistDetailView({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-xl ${boardThemeClass}`}
+        className={`max-w-sm md:max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-xl`}
         onPointerDownOutside={(e) => {
           // Prevent the event from propagating to avoid moving the card
           e.preventDefault();
@@ -647,9 +647,13 @@ export function ZistDetailView({
         }}
         onKeyDown={(e) => {
           // Prevent keyboard events from bubbling up
+          e.preventDefault();
           e.stopPropagation();
         }}
       >
+        <div
+          className={`${boardThemeClass} -z-10 absolute top-0 left- w-full h-full `}
+        />
         <div className="p-6 pb-0 min-h-[400px]">
           <div className="flex items-center justify-between mb-4">
             {editingTitle ? (
@@ -698,14 +702,6 @@ export function ZistDetailView({
                 </Button>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
 
           {zist.dueDate && (
@@ -812,6 +808,7 @@ export function ZistDetailView({
                 {editingDescription ? (
                   <div className="space-y-2">
                     <Textarea
+                      autoFocus
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Add a more detailed description..."

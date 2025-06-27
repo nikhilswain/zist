@@ -250,9 +250,12 @@ export function BoardHeader({ board, setBoard }: BoardHeaderProps) {
       </div>
 
       <Dialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen}>
-        <DialogContent
-          className={selectedTheme !== "default" ? currentTheme.class : ""}
-        >
+        <DialogContent className={"board_dialog-content"}>
+          <div
+            className={`-z-10 absolute top-0 left- w-full h-full ${
+              selectedTheme !== "default" ? currentTheme.class : ""
+            }`}
+          />
           <DialogHeader>
             <DialogTitle>Board Theme</DialogTitle>
             <DialogDescription>Choose a theme for your board</DialogDescription>

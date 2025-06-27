@@ -405,14 +405,14 @@ export function Board({ board, setBoard }: BoardProps) {
   };
 
   return (
-    <div className={`h-full ${boardThemeClass}`}>
+    <div className={`h-full ${boardThemeClass} rounded-xl`}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4 pt-2 h-full">
+        <div className="flex gap-4 overflow-x-auto h-full p-4 ">
           <SortableContext
             items={board.columns.map((col) => col.id)}
             strategy={horizontalListSortingStrategy}

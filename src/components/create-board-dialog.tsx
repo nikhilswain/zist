@@ -81,9 +81,12 @@ export function CreateBoardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={selectedTheme !== "default" ? currentTheme.class : ""}
-      >
+      <DialogContent className={"board_dialog-content"}>
+        <div
+          className={`-z-10 absolute top-0 left- w-full h-full ${
+            selectedTheme !== "default" ? currentTheme.class : ""
+          }`}
+        />
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Create Board</DialogTitle>
