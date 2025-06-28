@@ -14,6 +14,11 @@ export default defineConfig({
   site: "https://zist.pages.dev",
   vite: {
     plugins: [tailwindcss()],
+    resolve: {
+      alias: import.meta.env.PROD
+        ? { "react-dom/server": "react-dom/server.edge" }
+        : undefined,
+    },
   },
 
   integrations: [react(), sitemap()],
