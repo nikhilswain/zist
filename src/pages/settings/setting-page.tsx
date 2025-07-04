@@ -25,6 +25,7 @@ import {
 import { Download, Upload, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { DB_NAME } from "@/lib/db";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -57,7 +58,7 @@ export default function SettingsPage() {
     try {
       setIsExporting(true);
       // Get all data from IndexedDB
-      const openRequest = indexedDB.open("zira-db", 1);
+      const openRequest = indexedDB.open(DB_NAME, 1);
 
       openRequest.onsuccess = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
@@ -129,7 +130,7 @@ export default function SettingsPage() {
             const data = JSON.parse(e.target?.result as string);
 
             // Restore data to IndexedDB
-            const openRequest = indexedDB.open("zira-db", 1);
+            const openRequest = indexedDB.open(DB_NAME, 1);
 
             openRequest.onsuccess = (event) => {
               const db = (event.target as IDBOpenDBRequest).result;
@@ -177,6 +178,8 @@ export default function SettingsPage() {
       console.error("Error restoring data:", error);
       toast.error("Failed to restore data");
       setIsImporting(false);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -184,7 +187,7 @@ export default function SettingsPage() {
     console.log("handleClearData called");
     try {
       setIsClearing(true);
-      const openRequest = indexedDB.open("zira-db", 1);
+      const openRequest = indexedDB.open(DB_NAME, 1);
 
       openRequest.onsuccess = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;

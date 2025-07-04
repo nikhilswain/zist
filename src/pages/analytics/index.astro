@@ -1,8 +1,10 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import AnalyticsPage from "./analytics-page";
+import { Toaster } from "sonner";
 ---
 
 <Layout title="zist | analytics">
   <AnalyticsPage client:only="react" />
+  <Toaster richColors client:only="react"/ >
 </Layout>

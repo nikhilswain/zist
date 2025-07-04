@@ -7,7 +7,7 @@ import type {
   ActivityType,
 } from "./types";
 
-const DB_NAME = "zist-db";
+export const DB_NAME = "zist-db";
 const DB_VERSION = 1;
 
 // Initialize the database

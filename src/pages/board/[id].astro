@@ -2,8 +2,10 @@
 export const prerender = false;
 import Layout from "@/layouts/Layout.astro";
 import BoardPage from "./board-page";
+import { Toaster } from "sonner";
 ---
 
 <Layout title="zist | board">
   <BoardPage client:only="react" />
+  <Toaster richColors client:only="react"/ >
 </Layout>
