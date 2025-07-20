@@ -145,6 +145,8 @@ export function SortableColumn({
                 autoFocus
                 disabled={isUpdatingColumn}
                 onKeyDown={(e) => {
+                  e.stopPropagation();
+
                   if (e.key === "Enter") {
                     handleSaveColumnEdit();
                   } else if (e.key === "Escape") {
