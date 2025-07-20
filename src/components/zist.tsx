@@ -254,7 +254,7 @@ export function Zist({ zist, board, setBoard }: ZistProps) {
             </p>
           )}
         </CardContent>
-        <CardFooter className="p-3 pt-0 flex justify-between items-center">
+        <CardFooter className="px-3 flex justify-between items-center">
           <div className="flex items-center gap-2 text-muted-foreground">
             {zist.dueDate && (
               <div className="flex items-center">
