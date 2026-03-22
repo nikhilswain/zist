@@ -1,5 +1,6 @@
 "use client";
 
+import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { MoreHorizontal, Plus, X } from "lucide-react";
@@ -29,6 +30,7 @@ import {
 import { SortableZist } from "@/components/sortable-zist";
 import type { ColumnType, BoardType } from "@/lib/types";
 import { useState, useTransition } from "react";
+import { cn } from "@/lib/utils";
 
 interface SortableColumnProps {
   id: string;
@@ -73,6 +75,13 @@ export function SortableColumn({
     data: {
       type: "column",
       column,
+    },
+  });
+  const { isOver, setNodeRef: setDropzoneRef } = useDroppable({
+    id: `column-dropzone-${column.id}`,
+    data: {
+      type: "column-dropzone",
+      columnId: column.id,
     },
   });
 
@@ -216,7 +225,13 @@ export function SortableColumn({
             items={column.zists.map((zist) => zist.id)}
             strategy={verticalListSortingStrategy}
           >
-            <div className="space-y-2 min-h-[200px]">
+            <div
+              ref={setDropzoneRef}
+              className={cn(
+                "space-y-2 min-h-[200px] rounded-lg transition-colors",
+                isOver && "bg-primary/5 ring-1 ring-primary/20"
+              )}
+            >
               {column.zists.map((zist) => (
                 <SortableZist
                   key={zist.id}

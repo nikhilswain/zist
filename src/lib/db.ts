@@ -773,7 +773,8 @@ export async function moveZist(
   boardId: string,
   fromColumnId: string,
   toColumnId: string,
-  zistId: string
+  zistId: string,
+  targetIndex?: number
 ): Promise<void> {
   // return queueOperation(async () => {
   const board = await getBoard(boardId);
@@ -816,7 +817,14 @@ export async function moveZist(
   });
 
   board.columns[fromColumnIndex].zists.splice(zistIndex, 1);
-  board.columns[toColumnIndex].zists.push(zist);
+  const insertIndex =
+    typeof targetIndex === "number" &&
+    targetIndex >= 0 &&
+    targetIndex <= board.columns[toColumnIndex].zists.length
+      ? targetIndex
+      : board.columns[toColumnIndex].zists.length;
+
+  board.columns[toColumnIndex].zists.splice(insertIndex, 0, zist);
   board.updatedAt = Date.now();
 
   await updateBoard(board);

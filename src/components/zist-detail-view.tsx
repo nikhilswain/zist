@@ -647,7 +647,6 @@ export function ZistDetailView({
         }}
         onKeyDown={(e) => {
           // Prevent keyboard events from bubbling up
-          e.preventDefault();
           e.stopPropagation();
         }}
       >

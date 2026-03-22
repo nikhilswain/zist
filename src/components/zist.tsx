@@ -339,7 +339,7 @@ export function Zist({ zist, board, setBoard }: ZistProps) {
       />
 
       <Dialog open={editOpen && !isDisabled} onOpenChange={setEditOpen}>
-        <DialogContent>
+        <DialogContent onKeyDown={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>Edit Card</DialogTitle>
             <DialogDescription>Make changes to your card.</DialogDescription>

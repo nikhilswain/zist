@@ -1,17 +1,20 @@
 import { useState } from "react";
 import {
   DndContext,
-  closestCenter,
-  KeyboardSensor,
+  closestCorners,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
   DragOverlay,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
@@ -49,6 +52,7 @@ export function Board({ board, setBoard }: BoardProps) {
   const [isUpdatingColumn, setIsUpdatingColumn] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<"column" | "zist" | null>(null);
+  const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
 
   const boardThemeClass = useThemeClass(board.theme);
 
@@ -57,30 +61,196 @@ export function Board({ board, setBoard }: BoardProps) {
       activationConstraint: {
         distance: 8,
       },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  const handleDragStart = (event: any) => {
+  const collisionDetectionStrategy: CollisionDetection = (args) => {
+    const pointerIntersections = pointerWithin(args);
+
+    if (pointerIntersections.length > 0) {
+      return pointerIntersections;
+    }
+
+    return closestCorners(args);
+  };
+
+  const findColumnByZistId = (zistId: string) =>
+    board.columns.find((column) =>
+      column.zists.some((zist) => zist.id === zistId)
+    ) ?? null;
+
+  const getOverColumnId = (over: DragOverEvent["over"] | DragEndEvent["over"]) => {
+    if (!over) {
+      return null;
+    }
+
+    if (over.data.current?.type === "zist") {
+      return over.data.current.columnId as string;
+    }
+
+    if (over.data.current?.type === "column-dropzone") {
+      return over.data.current.columnId as string;
+    }
+
+    if (over.data.current?.type === "column") {
+      return over.id as string;
+    }
+
+    return null;
+  };
+
+  const moveZistInBoard = (
+    currentBoard: BoardType,
+    activeZistId: string,
+    over: DragOverEvent["over"] | DragEndEvent["over"]
+  ) => {
+    const sourceColumn = currentBoard.columns.find((column) =>
+      column.zists.some((zist) => zist.id === activeZistId)
+    );
+    const destinationColumnId = getOverColumnId(over);
+
+    if (!sourceColumn || !destinationColumnId) {
+      return null;
+    }
+
+    const sourceColumnIndex = currentBoard.columns.findIndex(
+      (column) => column.id === sourceColumn.id
+    );
+    const destinationColumnIndex = currentBoard.columns.findIndex(
+      (column) => column.id === destinationColumnId
+    );
+
+    if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+      return null;
+    }
+
+    const activeIndex = sourceColumn.zists.findIndex(
+      (zist) => zist.id === activeZistId
+    );
+
+    if (activeIndex === -1) {
+      return null;
+    }
+
+    const overIsZist = over?.data.current?.type === "zist";
+
+    if (sourceColumnIndex === destinationColumnIndex && overIsZist) {
+      const overIndex = sourceColumn.zists.findIndex((zist) => zist.id === over.id);
+
+      if (overIndex === -1 || overIndex === activeIndex) {
+        return null;
+      }
+
+      const updatedColumns = [...currentBoard.columns];
+      updatedColumns[sourceColumnIndex] = {
+        ...sourceColumn,
+        zists: arrayMove(sourceColumn.zists, activeIndex, overIndex),
+      };
+
+      return {
+        board: {
+          ...currentBoard,
+          columns: updatedColumns,
+        },
+        destinationColumnId,
+        destinationIndex: overIndex,
+      };
+    }
+
+    if (sourceColumnIndex === destinationColumnIndex && !overIsZist) {
+      return null;
+    }
+
+    const destinationColumn = currentBoard.columns[destinationColumnIndex];
+    const updatedColumns = [...currentBoard.columns];
+    const updatedSourceZists = [...sourceColumn.zists];
+    const [movedZist] = updatedSourceZists.splice(activeIndex, 1);
+
+    if (!movedZist) {
+      return null;
+    }
+
+    const updatedDestinationZists =
+      sourceColumnIndex === destinationColumnIndex
+        ? updatedSourceZists
+        : [...destinationColumn.zists];
+
+    const destinationIndex = overIsZist
+      ? updatedDestinationZists.findIndex((zist) => zist.id === over.id)
+      : updatedDestinationZists.length;
+
+    const safeDestinationIndex =
+      destinationIndex === -1 ? updatedDestinationZists.length : destinationIndex;
+
+    updatedDestinationZists.splice(safeDestinationIndex, 0, {
+      ...movedZist,
+      columnId: destinationColumnId,
+    });
+
+    updatedColumns[sourceColumnIndex] = {
+      ...sourceColumn,
+      zists: updatedSourceZists,
+    };
+
+    updatedColumns[destinationColumnIndex] = {
+      ...destinationColumn,
+      zists: updatedDestinationZists,
+    };
+
+    return {
+      board: {
+        ...currentBoard,
+        columns: updatedColumns,
+      },
+      destinationColumnId,
+      destinationIndex: safeDestinationIndex,
+    };
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    setActiveId(active.id);
+    setActiveId(active.id as string);
 
     // Determine if we're dragging a column or a zist
     if (active.data.current?.type === "column") {
       setActiveType("column");
+      setActiveColumnId(null);
     } else {
       setActiveType("zist");
+      setActiveColumnId(active.data.current?.columnId ?? null);
     }
   };
 
-  const handleDragEnd = async (event: any) => {
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+
+    if (active.data.current?.type !== "zist" || !over) {
+      return;
+    }
+
+    const sourceColumn = findColumnByZistId(active.id as string);
+    const destinationColumnId = getOverColumnId(over);
+
+    if (!sourceColumn || !destinationColumnId || sourceColumn.id === destinationColumnId) {
+      return;
+    }
+
+    const moveResult = moveZistInBoard(board, active.id as string, over);
+
+    if (!moveResult) {
+      return;
+    }
+
+    setBoard(moveResult.board);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over) {
       setActiveId(null);
       setActiveType(null);
+      setActiveColumnId(null);
       return;
     }
 
@@ -121,106 +291,42 @@ export function Board({ board, setBoard }: BoardProps) {
 
     // Handle zist reordering or moving between columns
     if (active.data.current?.type === "zist") {
-      const activeColumnId = active.data.current.columnId;
-      const overColumnId =
-        over.data.current?.type === "column"
-          ? over.id
-          : over.data.current?.columnId;
+      const initialColumnId = activeColumnId;
+      const currentColumn = findColumnByZistId(active.id as string);
+      const moveResult = moveZistInBoard(board, active.id as string, over);
+      const updatedBoard = moveResult?.board ?? board;
+      const destinationColumnId =
+        moveResult?.destinationColumnId ??
+        currentColumn?.id ??
+        getOverColumnId(over);
+      const destinationIndex =
+        moveResult?.destinationIndex ??
+        updatedBoard.columns
+          .find((column) => column.id === destinationColumnId)
+          ?.zists.findIndex((zist) => zist.id === active.id) ??
+        -1;
 
-      if (!activeColumnId || !overColumnId) {
+      if (moveResult) {
+        setBoard(updatedBoard);
+      }
+
+      if (!initialColumnId || !destinationColumnId || destinationIndex === -1) {
         setActiveId(null);
         setActiveType(null);
+        setActiveColumnId(null);
         return;
       }
 
-      const sourceColumnIndex = board.columns.findIndex(
-        (col) => col.id === activeColumnId
-      );
-      const destColumnIndex = board.columns.findIndex(
-        (col) => col.id === overColumnId
-      );
-
-      if (sourceColumnIndex === -1 || destColumnIndex === -1) {
-        setActiveId(null);
-        setActiveType(null);
-        return;
-      }
-
-      const sourceColumn = board.columns[sourceColumnIndex];
-      const destColumn = board.columns[destColumnIndex];
-
-      // Find the zist in the source column
-      const zistIndex = sourceColumn.zists.findIndex(
-        (zist) => zist.id === active.id
-      );
-      if (zistIndex === -1) {
-        setActiveId(null);
-        setActiveType(null);
-        return;
-      }
-
-      const zist = sourceColumn.zists[zistIndex];
-
-      // Create new arrays to avoid mutating state directly
-      const newColumns = [...board.columns];
-      const newSourceColumn = {
-        ...sourceColumn,
-        zists: [...sourceColumn.zists],
-      };
-      const newDestColumn =
-        sourceColumnIndex === destColumnIndex
-          ? newSourceColumn
-          : { ...destColumn, zists: [...destColumn.zists] };
-
-      // Remove the zist from the source column
-      newSourceColumn.zists.splice(zistIndex, 1);
-
-      // If moving to a different column, update the zist's columnId
-      let updatedZist = zist;
-      if (sourceColumnIndex !== destColumnIndex) {
-        updatedZist = {
-          ...zist,
-          columnId: destColumn.id,
-        };
-      }
-
-      // Add the zist to the destination column
-      // If over is a zist, find its index in the destination column
-      if (
-        over.data.current?.type === "zist" &&
-        over.data.current?.columnId === overColumnId
-      ) {
-        const overIndex = newDestColumn.zists.findIndex(
-          (z) => z.id === over.id
-        );
-        if (overIndex !== -1) {
-          newDestColumn.zists.splice(overIndex, 0, updatedZist);
-        } else {
-          newDestColumn.zists.push(updatedZist);
-        }
-      } else {
-        // If over is a column, add to the end
-        newDestColumn.zists.push(updatedZist);
-      }
-
-      // Update the columns in the board
-      newColumns[sourceColumnIndex] = newSourceColumn;
-      if (sourceColumnIndex !== destColumnIndex) {
-        newColumns[destColumnIndex] = newDestColumn;
-      }
-
-      const updatedBoard = {
-        ...board,
-        columns: newColumns,
-      };
-
-      setBoard(updatedBoard);
-
-      // Persist the changes to the database
       try {
-        if (sourceColumnIndex !== destColumnIndex) {
-          await moveZist(board.id, sourceColumn.id, destColumn.id, zist.id);
-        } else {
+        if (initialColumnId !== destinationColumnId) {
+          await moveZist(
+            board.id,
+            initialColumnId,
+            destinationColumnId,
+            active.id as string,
+            destinationIndex
+          );
+        } else if (moveResult) {
           await updateBoard(updatedBoard);
         }
       } catch (error) {
@@ -231,6 +337,7 @@ export function Board({ board, setBoard }: BoardProps) {
 
     setActiveId(null);
     setActiveType(null);
+    setActiveColumnId(null);
   };
 
   const handleAddColumn = async () => {
@@ -408,8 +515,9 @@ export function Board({ board, setBoard }: BoardProps) {
     <div className={`h-full ${boardThemeClass} rounded-xl`}>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetectionStrategy}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-4 overflow-x-auto h-full p-4 ">
