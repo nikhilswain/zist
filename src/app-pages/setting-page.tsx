@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,13 +27,14 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { DB_NAME } from "@/lib/db";
 
+const SETTINGS_STORAGE_KEY = "zist-settings";
+
+const defaultSettings = {
+  enableAnimations: true,
+};
+
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    lockColumnReordering: false,
-    enableAnimations: true,
-    autoCollapseColumns: false,
-    darkMode: false,
-  });
+  const [settings, setSettings] = useState(defaultSettings);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -42,16 +43,39 @@ export default function SettingsPage() {
   const [clearDataError, setClearDataError] = useState<string | null>(null);
   const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
 
-  const handleSettingChange = (
-    setting: keyof typeof settings,
-    value: boolean
-  ) => {
-    setSettings((prev) => ({
-      ...prev,
-      [setting]: value,
-    }));
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!savedSettings) {
+      return;
+    }
 
-    toast.success("Setting updated successfully");
+    try {
+      const parsedSettings = JSON.parse(savedSettings);
+      setSettings({
+        ...defaultSettings,
+        ...parsedSettings,
+      });
+    } catch {
+      localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    }
+  }, []);
+
+  const handleSettingChange = (value: boolean) => {
+    const nextSettings = {
+      enableAnimations: value,
+    };
+
+    setSettings(nextSettings);
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings));
+    document.documentElement.classList.toggle("reduce-motion", !value);
+    toast.success(value ? "Animations enabled" : "Animations disabled");
+  };
+
+  const resetClearDataDialog = () => {
+    setClearDataDialogOpen(false);
+    setClearDataStep(0);
+    setClearDataConfirmText("");
+    setClearDataError(null);
   };
 
   const handleBackupData = async () => {
@@ -83,7 +107,7 @@ export default function SettingsPage() {
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
-              a.download = `zira-backup-${
+              a.download = `zist-backup-${
                 new Date().toISOString().split("T")[0]
               }.json`;
               document.body.appendChild(a);
@@ -183,63 +207,55 @@ export default function SettingsPage() {
     }
   };
 
-  const handleClearData = () => {
-    console.log("handleClearData called");
+  const handleClearData = async () => {
     try {
       setIsClearing(true);
-      const openRequest = indexedDB.open(DB_NAME, 1);
 
-      openRequest.onsuccess = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        const storeNames = Array.from(db.objectStoreNames);
-        let completedStores = 0;
+      await new Promise<void>((resolve, reject) => {
+        const openRequest = indexedDB.open(DB_NAME, 1);
 
-        if (storeNames.length === 0) {
-          toast.success(
-            "All data cleared successfully. Please refresh the page."
+        openRequest.onsuccess = () => {
+          openRequest.result.close();
+          resolve();
+        };
+
+        openRequest.onerror = () => {
+          reject(new Error("Failed to access the local database"));
+        };
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+
+        deleteRequest.onsuccess = () => resolve();
+        deleteRequest.onerror = () =>
+          reject(new Error("Failed to delete the local database"));
+        deleteRequest.onblocked = () =>
+          reject(
+            new Error(
+              "Database reset is blocked. Close other tabs using Zist and try again."
+            )
           );
-          setIsClearing(false);
-          setClearDataDialogOpen(false);
-          return;
-        }
+      });
 
-        storeNames.forEach((storeName) => {
-          const transaction = db.transaction(storeName, "readwrite");
-          const store = transaction.objectStore(storeName);
-          const clearRequest = store.clear();
+      localStorage.removeItem(SETTINGS_STORAGE_KEY);
+      sessionStorage.clear();
+      document.documentElement.classList.remove("reduce-motion");
 
-          clearRequest.onsuccess = () => {
-            completedStores++;
-            if (completedStores === storeNames.length) {
-              toast.success(
-                "All data cleared successfully. Please refresh the page."
-              );
-              setIsClearing(false);
-              setClearDataDialogOpen(false);
-              setClearDataStep(0);
-            }
-          };
-
-          clearRequest.onerror = () => {
-            toast.error(`Failed to clear ${storeName} data`);
-            setIsClearing(false);
-          };
-        });
-      };
-
-      openRequest.onerror = () => {
-        toast.error("Failed to clear data");
-        setIsClearing(false);
-      };
+      resetClearDataDialog();
+      toast.success("All local data cleared");
+      window.location.replace("/");
     } catch (error) {
       console.error("Error clearing data:", error);
-      toast.error("Failed to clear data");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to clear data"
+      );
+    } finally {
       setIsClearing(false);
     }
   };
 
   const handleContinueToClearData = () => {
-    console.log("handleContinueToClearData called");
     if (clearDataConfirmText !== "Clear All Data") {
       setClearDataError("Text doesn't match. Please type 'Clear All Data'");
       return;
@@ -281,56 +297,29 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>General Settings</CardTitle>
                 <CardDescription>
-                  Configure your Zira experience
+                  Keep the experience focused and predictable
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="lock-columns">Lock Column Reordering</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Prevent columns from being reordered
-                    </p>
-                  </div>
-                  <Switch
-                    id="lock-columns"
-                    checked={settings.lockColumnReordering}
-                    onCheckedChange={(checked) =>
-                      handleSettingChange("lockColumnReordering", checked)
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
                     <Label htmlFor="animations">Enable Animations</Label>
                     <p className="text-sm text-muted-foreground">
-                      Show animations for a smoother experience
+                      Keep transitions and motion effects turned on across the
+                      app.
                     </p>
                   </div>
                   <Switch
                     id="animations"
                     checked={settings.enableAnimations}
-                    onCheckedChange={(checked) =>
-                      handleSettingChange("enableAnimations", checked)
-                    }
+                    onCheckedChange={handleSettingChange}
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="auto-collapse">Auto-Collapse Columns</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically collapse columns when not in use
-                    </p>
-                  </div>
-                  <Switch
-                    id="auto-collapse"
-                    checked={settings.autoCollapseColumns}
-                    onCheckedChange={(checked) =>
-                      handleSettingChange("autoCollapseColumns", checked)
-                    }
-                  />
+                <div className="rounded-lg border border-border/60 bg-card/60 p-4 text-sm text-muted-foreground">
+                  Theme switching already lives in the header, and the board
+                  behavior toggles will come back when they have real behavior
+                  behind them.
                 </div>
               </CardContent>
             </Card>
@@ -404,7 +393,6 @@ export default function SettingsPage() {
                       className="w-full"
                       disabled={isClearing}
                       onClick={() => {
-                        console.log("Opening clear data dialog");
                         setClearDataDialogOpen(true);
                         setClearDataStep(0);
                         setClearDataConfirmText("");
@@ -423,7 +411,7 @@ export default function SettingsPage() {
           <TabsContent value="about" className="mt-0">
             <Card>
               <CardHeader>
-                <CardTitle>About Zira</CardTitle>
+                <CardTitle>About Zist</CardTitle>
                 <CardDescription>
                   A rich Kanban board application with IndexedDB storage
                 </CardDescription>
@@ -437,7 +425,7 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="font-medium">Storage</h3>
                   <p className="text-sm text-muted-foreground">
-                    Zira uses IndexedDB to store all your data locally in your
+                    Zist uses IndexedDB to store all your data locally in your
                     browser. No data is sent to any server.
                   </p>
                 </div>
@@ -473,10 +461,7 @@ export default function SettingsPage() {
           open={clearDataDialogOpen}
           onOpenChange={(open) => {
             if (!open) {
-              setClearDataDialogOpen(false);
-              setClearDataStep(0);
-              setClearDataConfirmText("");
-              setClearDataError(null);
+              resetClearDataDialog();
             }
           }}
         >
@@ -518,12 +503,7 @@ export default function SettingsPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel
-                    onClick={() => {
-                      setClearDataDialogOpen(false);
-                      setClearDataConfirmText("");
-                      setClearDataError(null);
-                      setClearDataStep(0);
-                    }}
+                    onClick={resetClearDataDialog}
                   >
                     Cancel
                   </AlertDialogCancel>
@@ -555,12 +535,7 @@ export default function SettingsPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel
-                    onClick={() => {
-                      setClearDataDialogOpen(false);
-                      setClearDataConfirmText("");
-                      setClearDataError(null);
-                      setClearDataStep(0);
-                    }}
+                    onClick={resetClearDataDialog}
                   >
                     Cancel
                   </AlertDialogCancel>

@@ -1,10 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { Toaster } from "@/components/ui/sonner";
-import Home from './home';
+import Home from '@/app-pages/home';
 ---
 
 <Layout title="zist | workspaces">
   <Home client:only="react" />
-  <Toaster richColors client:only="react"/ >
 </Layout>
