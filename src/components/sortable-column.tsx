@@ -31,6 +31,7 @@ import { SortableZist } from "@/components/sortable-zist";
 import type { ColumnType, BoardType } from "@/lib/types";
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SortableColumnProps {
   id: string;
@@ -131,12 +132,12 @@ export function SortableColumn({
     <div
       ref={setNodeRef}
       style={style}
-      className={`w-80 flex-shrink-0 transition-all ${
+      className={`w-80 flex-shrink-0 self-stretch min-h-0 transition-all ${
         isDragging ? "z-10" : ""
       }`}
     >
       <Card
-        className={`h-full flex flex-col apple-card ${boardThemeClass} ${
+        className={`h-full min-h-0 flex flex-col apple-card ${boardThemeClass} ${
           isDisabled ? "opacity-50" : ""
         }`}
       >
@@ -199,6 +200,13 @@ export function SortableColumn({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
+                    onClick={() => onAddZist(column.id)}
+                    disabled={isDisabled}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add a card
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     onClick={() => onEdit(column.id)}
                     disabled={isDisabled}
                   >
@@ -220,35 +228,39 @@ export function SortableColumn({
             </>
           )}
         </CardHeader>
-        <CardContent className="p-3 flex-1 overflow-y-auto">
-          <SortableContext
-            items={column.zists.map((zist) => zist.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div
-              ref={setDropzoneRef}
-              className={cn(
-                "space-y-2 min-h-[200px] rounded-lg transition-colors",
-                isOver && "bg-primary/5 ring-1 ring-primary/20"
-              )}
-            >
-              {column.zists.map((zist) => (
-                <SortableZist
-                  key={zist.id}
-                  id={zist.id}
-                  zist={zist}
-                  board={board}
-                  setBoard={setBoard}
-                  columnId={column.id}
-                />
-              ))}
+        <CardContent className="flex-1 min-h-0 p-0">
+          <ScrollArea className="h-full">
+            <div className="px-3 pb-3">
+              <SortableContext
+                items={column.zists.map((zist) => zist.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div
+                  ref={setDropzoneRef}
+                  className={cn(
+                    "space-y-2 min-h-[200px] rounded-lg transition-colors",
+                    isOver && "bg-primary/5 ring-1 ring-primary/20"
+                  )}
+                >
+                  {column.zists.map((zist) => (
+                    <SortableZist
+                      key={zist.id}
+                      id={zist.id}
+                      zist={zist}
+                      board={board}
+                      setBoard={setBoard}
+                      columnId={column.id}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
             </div>
-          </SortableContext>
+          </ScrollArea>
         </CardContent>
-        <div className="p-3 pt-0">
+        <div className="p-3 pt-0 mt-auto">
           <Button
             variant="ghost"
-            className="w-full justify-start text-muted-foreground"
+            className="w-full justify-start rounded-lg border border-dashed border-border/70 bg-background/40 text-muted-foreground hover:bg-muted/60"
             onClick={() => onAddZist(column.id)}
             disabled={isDisabled}
           >

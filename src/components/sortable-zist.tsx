@@ -41,6 +41,7 @@ export function SortableZist({
     transition,
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 10 : 1,
+    willChange: "transform",
   };
 
   return (

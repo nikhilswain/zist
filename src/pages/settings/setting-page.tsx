@@ -250,7 +250,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header showSearch={false} />
       <main className="flex-1 container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-6">Settings</h1>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { Header } from "@/components/header";
 import {
   Card,
@@ -8,56 +8,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getWorkspaces, getBoardsByWorkspace } from "@/lib/db";
 import type { WorkspaceType, BoardType, ZistType } from "@/lib/types";
 import { toast } from "sonner";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  TimeScale,
-  RadialLinearScale,
-  Filler,
-  PointElement as PointElement2,
-} from "chart.js";
-import { Pie, Bar, Line, Radar, PolarArea, Doughnut } from "react-chartjs-2";
-import "chartjs-adapter-date-fns";
 
-// Register ChartJS components
-ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  TimeScale,
-  RadialLinearScale,
-  Filler,
-  PointElement2
-);
+type ChartComponent = ComponentType<any>;
+
+type ChartSuite = {
+  Pie: ChartComponent;
+  Bar: ChartComponent;
+  Line: ChartComponent;
+  Radar: ChartComponent;
+  PolarArea: ChartComponent;
+  Doughnut: ChartComponent;
+};
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
+  const [charts, setCharts] = useState<ChartSuite | null>(null);
+  const [chartLoadError, setChartLoadError] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [boards, setBoards] = useState<BoardType[]>([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>("all");
@@ -90,6 +61,66 @@ export default function AnalyticsPage() {
     "rgba(255, 45, 85, 0.8)", // Pink
     "rgba(142, 142, 147, 0.8)", // Gray
   ];
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCharts = async () => {
+      try {
+        const [chartJs, reactCharts] = await Promise.all([
+          import("chart.js"),
+          import("react-chartjs-2"),
+          import("chartjs-adapter-date-fns"),
+        ]);
+
+        chartJs.Chart.register(
+          chartJs.ArcElement,
+          chartJs.Tooltip,
+          chartJs.Legend,
+          chartJs.CategoryScale,
+          chartJs.LinearScale,
+          chartJs.BarElement,
+          chartJs.PointElement,
+          chartJs.LineElement,
+          chartJs.Title,
+          chartJs.TimeScale,
+          chartJs.RadialLinearScale,
+          chartJs.Filler
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setCharts({
+          Pie: reactCharts.Pie,
+          Bar: reactCharts.Bar,
+          Line: reactCharts.Line,
+          Radar: reactCharts.Radar,
+          PolarArea: reactCharts.PolarArea,
+          Doughnut: reactCharts.Doughnut,
+        });
+      } catch (error) {
+        console.error("Error loading chart dependencies:", error);
+
+        if (!mounted) {
+          return;
+        }
+
+        setChartLoadError(true);
+        toast.error("Analytics charts failed to load", {
+          description:
+            "The dev dependency cache looks stale. Refresh the dev server once if charts stay unavailable.",
+        });
+      }
+    };
+
+    loadCharts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -701,10 +732,15 @@ export default function AnalyticsPage() {
     },
   };
 
+  const ChartComponents = charts;
+  const chartStatusText = chartLoadError
+    ? "Charts are temporarily unavailable in this dev session."
+    : "Loading charts...";
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Header />
+        <Header showSearch={false} />
         <main className="flex-1 container mx-auto p-4">
           <h1 className="text-2xl font-bold mb-6">Analytics</h1>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -724,77 +760,69 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header showSearch={false} />
       <main className="flex-1 container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-6">Analytics</h1>
 
         <div className="flex flex-wrap gap-4 mb-6">
           <div className="space-y-2">
             <Label htmlFor="workspace-filter">Workspace</Label>
-            <Select
+            <select
+              id="workspace-filter"
+              className="border-input bg-background h-9 w-[200px] rounded-md border px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
               value={selectedWorkspace}
-              onValueChange={(value) => {
+              onChange={(e) => {
+                const value = e.target.value;
                 setSelectedWorkspace(value);
                 setSelectedBoard("all"); // Reset board selection when workspace changes
               }}
             >
-              <SelectTrigger id="workspace-filter" className="w-[200px]">
-                <SelectValue placeholder="Select workspace" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Workspaces</SelectItem>
-                {workspaces.map((workspace) => (
-                  <SelectItem key={workspace.id} value={workspace.id}>
-                    {workspace.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <option value="all">All Workspaces</option>
+              {workspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="board-filter">Board</Label>
-            <Select
+            <select
+              id="board-filter"
+              className="border-input bg-background h-9 w-[200px] rounded-md border px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
               value={selectedBoard}
-              onValueChange={setSelectedBoard}
+              onChange={(e) => setSelectedBoard(e.target.value)}
               disabled={selectedWorkspace === "all"}
             >
-              <SelectTrigger id="board-filter" className="w-[200px]">
-                <SelectValue placeholder="Select board" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Boards</SelectItem>
-                {boards
-                  .filter(
-                    (board) =>
-                      selectedWorkspace === "all" ||
-                      board.workspaceId === selectedWorkspace
-                  )
-                  .map((board) => (
-                    <SelectItem key={board.id} value={board.id}>
-                      {board.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+              <option value="all">All Boards</option>
+              {boards
+                .filter(
+                  (board) =>
+                    selectedWorkspace === "all" ||
+                    board.workspaceId === selectedWorkspace
+                )
+                .map((board) => (
+                  <option key={board.id} value={board.id}>
+                    {board.name}
+                  </option>
+                ))}
+            </select>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="time-filter">Time Range</Label>
-            <Select
+            <select
+              id="time-filter"
+              className="border-input bg-background h-9 w-[200px] rounded-md border px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
               value={selectedTimeRange}
-              onValueChange={setSelectedTimeRange}
+              onChange={(e) => setSelectedTimeRange(e.target.value)}
             >
-              <SelectTrigger id="time-filter" className="w-[200px]">
-                <SelectValue placeholder="Select time range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="week">Last Week</SelectItem>
-                <SelectItem value="month">Last Month</SelectItem>
-                <SelectItem value="quarter">Last Quarter</SelectItem>
-              </SelectContent>
-            </Select>
+              <option value="all">All Time</option>
+              <option value="week">Last Week</option>
+              <option value="month">Last Month</option>
+              <option value="quarter">Last Quarter</option>
+            </select>
           </div>
         </div>
 
@@ -862,14 +890,18 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
-                  {stats.zistsByStatus.length > 0 ? (
-                    <Doughnut
+                  {stats.zistsByStatus.length > 0 && ChartComponents ? (
+                    <ChartComponents.Doughnut
                       data={prepareStatusChartData()}
                       options={pieChartOptions}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">No data available</p>
+                      <p className="text-muted-foreground">
+                        {stats.zistsByStatus.length > 0
+                          ? chartStatusText
+                          : "No data available"}
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -883,14 +915,18 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
-                  {stats.zistsByWorkspace.length > 0 ? (
-                    <Bar
+                  {stats.zistsByWorkspace.length > 0 && ChartComponents ? (
+                    <ChartComponents.Bar
                       data={prepareWorkspaceChartData()}
                       options={barChartOptions}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">No data available</p>
+                      <p className="text-muted-foreground">
+                        {stats.zistsByWorkspace.length > 0
+                          ? chartStatusText
+                          : "No data available"}
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -905,8 +941,8 @@ export default function AnalyticsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="h-80">
-                    {stats.zistsByBoard.length > 0 ? (
-                      <Bar
+                    {stats.zistsByBoard.length > 0 && ChartComponents ? (
+                      <ChartComponents.Bar
                         data={prepareBoardChartData()}
                         options={barChartOptions}
                       />
@@ -929,14 +965,18 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
-                  {stats.zistsByPriority.length > 0 ? (
-                    <Pie
+                  {stats.zistsByPriority.length > 0 && ChartComponents ? (
+                    <ChartComponents.Pie
                       data={preparePriorityChartData()}
                       options={pieChartOptions}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">No data available</p>
+                      <p className="text-muted-foreground">
+                        {stats.zistsByPriority.length > 0
+                          ? chartStatusText
+                          : "No data available"}
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -954,8 +994,8 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
-                  {stats.zistsByActivity.length > 0 ? (
-                    <PolarArea
+                  {stats.zistsByActivity.length > 0 && ChartComponents ? (
+                    <ChartComponents.PolarArea
                       data={prepareActivityChartData()}
                       options={pieChartOptions}
                     />
@@ -973,8 +1013,8 @@ export default function AnalyticsPage() {
                   <CardDescription>Cards created per month</CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
-                  {stats.zistsByMonth.length > 0 ? (
-                    <Bar
+                  {stats.zistsByMonth.length > 0 && ChartComponents ? (
+                    <ChartComponents.Bar
                       data={prepareMonthlyChartData()}
                       options={horizontalBarChartOptions}
                     />
@@ -994,15 +1034,21 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
-                  {stats.zistsByPriority.length > 0 ||
-                  stats.zistsByStatus.length > 0 ? (
-                    <Radar
+                  {(stats.zistsByPriority.length > 0 ||
+                    stats.zistsByStatus.length > 0) &&
+                  ChartComponents ? (
+                    <ChartComponents.Radar
                       data={prepareRadarChartData()}
                       options={radarChartOptions}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">No data available</p>
+                      <p className="text-muted-foreground">
+                        {stats.zistsByPriority.length > 0 ||
+                        stats.zistsByStatus.length > 0
+                          ? chartStatusText
+                          : "No data available"}
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -1019,14 +1065,18 @@ export default function AnalyticsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-96">
-                {stats.zistsByDate.length > 0 ? (
-                  <Line
+                {stats.zistsByDate.length > 0 && ChartComponents ? (
+                  <ChartComponents.Line
                     data={prepareDateChartData()}
                     options={lineChartOptions}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">No data available</p>
+                    <p className="text-muted-foreground">
+                      {stats.zistsByDate.length > 0
+                        ? chartStatusText
+                        : "No data available"}
+                    </p>
                   </div>
                 )}
               </CardContent>

@@ -46,7 +46,11 @@ import {
 import type { WorkspaceType, BoardType } from "@/lib/types";
 import { toast } from "sonner";
 
-export function Workspaces() {
+interface WorkspacesProps {
+  searchQuery?: string;
+}
+
+export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [boards, setBoards] = useState<Record<string, BoardType[]>>({});
   const [loading, setLoading] = useState(true);
@@ -83,6 +87,31 @@ export function Workspaces() {
 
     fetchWorkspaces();
   }, []);
+
+  const getWorkspaceSearchMatch = (workspace: WorkspaceType) => {
+    const workspaceBoards = boards[workspace.id] || [];
+
+    if (!normalizedSearchQuery) {
+      return {
+        workspace,
+        workspaceMatches: false,
+        matchedBoards: [] as BoardType[],
+      };
+    }
+
+    const workspaceMatches = workspace.name
+      .toLowerCase()
+      .includes(normalizedSearchQuery);
+    const matchedBoards = workspaceBoards.filter((board) =>
+      board.name.toLowerCase().includes(normalizedSearchQuery)
+    );
+
+    return {
+      workspace,
+      workspaceMatches,
+      matchedBoards,
+    };
+  };
 
   const handleDeleteWorkspace = async (id: string) => {
     console.log("handleDeleteWorkspace called with id:", id);
@@ -205,9 +234,13 @@ export function Workspaces() {
     }));
   };
 
-  const navigateToWorkspace = (workspaceId: string) => {
-    window.location.href = `/workspace/${workspaceId}`;
-  };
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredWorkspaces = workspaces
+    .map(getWorkspaceSearchMatch)
+    .filter(
+      ({ workspaceMatches, matchedBoards }) =>
+        !normalizedSearchQuery || workspaceMatches || matchedBoards.length > 0
+    );
 
   if (loading) {
     return (
@@ -251,28 +284,68 @@ export function Workspaces() {
             <Plus className="mr-2 h-4 w-4" /> Create Workspace
           </Button>
         </div>
+      ) : filteredWorkspaces.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 border rounded-lg bg-muted/40">
+          <h3 className="text-lg font-medium mb-2">No matching workspaces</h3>
+          <p className="text-muted-foreground text-center">
+            Try a different workspace or board name.
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {workspaces.map((workspace) => (
+          {filteredWorkspaces.map(
+            ({ workspace, workspaceMatches, matchedBoards }) => (
             <Card
               key={workspace.id}
-              className={`overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
+              className={`relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
                 isDeleting === workspace.id || isPending
                   ? "opacity-50 pointer-events-none"
                   : ""
               }`}
-              onClick={() =>
-                !isDeleting && !isPending && navigateToWorkspace(workspace.id)
-              }
             >
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <a
+                href={`/workspace/${workspace.id}`}
+                className="absolute inset-0 z-10 rounded-xl"
+                aria-label={`Open workspace ${workspace.name}`}
+              />
+              <CardHeader
+                className={`relative z-0 flex flex-row items-center justify-between pb-2 ${
+                  isDeleting === workspace.id || isPending
+                    ? "pointer-events-none"
+                    : ""
+                }`}
+              >
                 <div>
                   <CardTitle>{workspace.name}</CardTitle>
                   <CardDescription>
                     {boards[workspace.id]?.length || 0} boards
                   </CardDescription>
+                  {normalizedSearchQuery && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {workspaceMatches && (
+                        <span className="rounded-full border px-2 py-0.5">
+                          Workspace name match
+                        </span>
+                      )}
+                      {matchedBoards.length > 0 && (
+                        <span className="rounded-full border px-2 py-0.5">
+                          Matched boards:{" "}
+                          {matchedBoards
+                            .slice(0, 2)
+                            .map((board) => board.name)
+                            .join(", ")}
+                          {matchedBoards.length > 2
+                            ? ` +${matchedBoards.length - 2}`
+                            : ""}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="relative z-20"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -292,11 +365,10 @@ export function Workspaces() {
                       >
                         <Edit className="mr-2 h-4 w-4" /> Rename
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => navigateToWorkspace(workspace.id)}
-                        disabled={isDeleting === workspace.id || isPending}
-                      >
-                        <Folder className="mr-2 h-4 w-4" /> View Boards
+                      <DropdownMenuItem asChild>
+                        <a href={`/workspace/${workspace.id}`}>
+                          <Folder className="mr-2 h-4 w-4" /> View Boards
+                        </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
@@ -314,7 +386,8 @@ export function Workspaces() {
                 </div>
               </CardHeader>
             </Card>
-          ))}
+            )
+          )}
         </div>
       )}
 

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 export default function BoardPage() {
   const [board, setBoard] = useState<BoardType | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
   const boardId = window.location.pathname.split("/").pop() || {};
@@ -72,11 +73,17 @@ export default function BoardPage() {
   const boardThemeClass = board.theme ? `board-theme-${board.theme}` : "";
 
   return (
-    <div className={`min-h-screen flex flex-col ${boardThemeClass}`}>
-      <Header />
-      <main className="flex-1 container mx-auto p-4">
-        <BoardHeader board={board} setBoard={setBoard} />
-        <Board board={board} setBoard={setBoard} />
+    <div className={`h-dvh overflow-hidden flex flex-col ${boardThemeClass}`}>
+      <Header
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={`Search cards in ${board.name}`}
+      />
+      <main className="flex flex-1 min-h-0 flex-col overflow-hidden container mx-auto p-4">
+        <div className="shrink-0">
+          <BoardHeader board={board} setBoard={setBoard} />
+        </div>
+        <Board board={board} setBoard={setBoard} searchQuery={searchQuery} />
       </main>
     </div>
   );

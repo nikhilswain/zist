@@ -55,9 +55,11 @@ export default function WorkspacePage() {
   const [workspace, setWorkspace] = useState<WorkspaceType | null>(null);
   const [boards, setBoards] = useState<BoardType[]>([]);
   const [archivedBoards, setArchivedBoards] = useState<BoardType[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState<string | null>(null);
@@ -237,18 +239,30 @@ export default function WorkspacePage() {
 
   if (!workspace) return null;
 
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredBoards = boards.filter((board) =>
+    board.name.toLowerCase().includes(normalizedSearchQuery)
+  );
+  const filteredArchivedBoards = archivedBoards.filter((board) =>
+    board.name.toLowerCase().includes(normalizedSearchQuery)
+  );
+
   const renderBoardCard = (board: BoardType, isArchived = false) => {
     const boardThemeClass = board.theme ? `board-theme-${board.theme}` : "";
 
     return (
       <Card
         key={board.id}
-        className={`overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${boardThemeClass}`}
-        onClick={() =>
-          !isArchived && (window.location.href = `/board/${board.id}`)
-        }
+        className={`relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${boardThemeClass}`}
       >
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        {!isArchived && (
+          <a
+            href={`/board/${board.id}`}
+            className="absolute inset-0 z-10 rounded-xl"
+            aria-label={`Open board ${board.name}`}
+          />
+        )}
+        <CardHeader className="relative z-0 flex flex-row items-center justify-between pb-2">
           <div>
             <CardTitle>{board.name}</CardTitle>
             <CardDescription>
@@ -257,7 +271,7 @@ export default function WorkspacePage() {
               tasks
             </CardDescription>
           </div>
-          <div onClick={(e) => e.stopPropagation()}>
+          <div className="relative z-20" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -268,12 +282,10 @@ export default function WorkspacePage() {
               <DropdownMenuContent align="end">
                 {!isArchived ? (
                   <>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        (window.location.href = `/board/${board.id}`)
-                      }
-                    >
-                      <Edit className="mr-2 h-4 w-4" /> Edit Board
+                    <DropdownMenuItem asChild>
+                      <a href={`/board/${board.id}`}>
+                        <Edit className="mr-2 h-4 w-4" /> Edit Board
+                      </a>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => handleArchiveBoard(board.id)}
@@ -306,7 +318,7 @@ export default function WorkspacePage() {
             </DropdownMenu>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="relative z-0 pt-0">
           <div className="flex justify-between text-sm text-muted-foreground">
             <div>Created: {new Date(board.createdAt).toLocaleDateString()}</div>
             <div>Updated: {new Date(board.updatedAt).toLocaleDateString()}</div>
@@ -322,12 +334,16 @@ export default function WorkspacePage() {
     return (
       <div
         key={board.id}
-        className={`flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 ${boardThemeClass}`}
-        onClick={() =>
-          !isArchived && (window.location.href = `/board/${board.id}`)
-        }
+        className={`relative flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 ${boardThemeClass}`}
       >
-        <div className="flex items-center gap-3">
+        {!isArchived && (
+          <a
+            href={`/board/${board.id}`}
+            className="absolute inset-0 z-10"
+            aria-label={`Open board ${board.name}`}
+          />
+        )}
+        <div className="relative z-0 flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-primary"></div>
           <div>
             <h3 className="font-medium">{board.name}</h3>
@@ -339,7 +355,7 @@ export default function WorkspacePage() {
           </div>
         </div>
         <div
-          className="flex items-center gap-2"
+          className="relative z-10 flex items-center gap-2"
           onClick={(e) => e.stopPropagation()}
         >
           {!isArchived ? (
@@ -380,16 +396,17 @@ export default function WorkspacePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder={`Search boards in ${workspace.name}`}
+      />
       <main className="flex-1 container mx-auto p-4">
         <div className="flex items-center mb-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => (window.location.href = "/")}
-            className="mr-4"
-          >
-            <ArrowLeft className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="mr-4" asChild>
+            <a href="/" aria-label="Back to home">
+              <ArrowLeft className="h-5 w-5" />
+            </a>
           </Button>
           <h1 className="text-2xl font-bold">{workspace.name}</h1>
         </div>
@@ -420,7 +437,11 @@ export default function WorkspacePage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="active" className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "active" | "archived")}
+          className="w-full"
+        >
           <TabsList className="mb-4">
             <TabsTrigger value="active">Active Boards</TabsTrigger>
             <TabsTrigger value="archived">Archived Boards</TabsTrigger>
@@ -437,13 +458,20 @@ export default function WorkspacePage() {
                   <Plus className="mr-2 h-4 w-4" /> Create Board
                 </Button>
               </div>
+            ) : filteredBoards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 border rounded-lg bg-muted/40">
+                <h3 className="text-lg font-medium mb-2">No matching boards</h3>
+                <p className="text-muted-foreground text-center">
+                  Try a different board name.
+                </p>
+              </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {boards.map((board) => renderBoardCard(board))}
+                {filteredBoards.map((board) => renderBoardCard(board))}
               </div>
             ) : (
               <div className="space-y-2 border rounded-md overflow-hidden">
-                {boards.map((board) => renderBoardList(board))}
+                {filteredBoards.map((board) => renderBoardList(board))}
               </div>
             )}
           </TabsContent>
@@ -456,13 +484,24 @@ export default function WorkspacePage() {
                   Archived boards will appear here
                 </p>
               </div>
+            ) : filteredArchivedBoards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 border rounded-lg bg-muted/40">
+                <h3 className="text-lg font-medium mb-2">No matching boards</h3>
+                <p className="text-muted-foreground text-center">
+                  Try a different board name.
+                </p>
+              </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {archivedBoards.map((board) => renderBoardCard(board, true))}
+                {filteredArchivedBoards.map((board) =>
+                  renderBoardCard(board, true)
+                )}
               </div>
             ) : (
               <div className="space-y-2 border rounded-md overflow-hidden">
-                {archivedBoards.map((board) => renderBoardList(board, true))}
+                {filteredArchivedBoards.map((board) =>
+                  renderBoardList(board, true)
+                )}
               </div>
             )}
           </TabsContent>

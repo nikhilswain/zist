@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DndContext,
   closestCorners,
@@ -38,9 +38,10 @@ import { useThemeClass } from "@/lib/hooks/use-theme-class";
 interface BoardProps {
   board: BoardType;
   setBoard: (board: BoardType) => void;
+  searchQuery?: string;
 }
 
-export function Board({ board, setBoard }: BoardProps) {
+export function Board({ board, setBoard, searchQuery = "" }: BoardProps) {
   const [newColumnName, setNewColumnName] = useState("");
   const [addingColumn, setAddingColumn] = useState(false);
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
@@ -53,8 +54,16 @@ export function Board({ board, setBoard }: BoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<"column" | "zist" | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
+  const [selectedSearchColumnId, setSelectedSearchColumnId] = useState<
+    string | null
+  >(null);
 
   const boardThemeClass = useThemeClass(board.theme);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  useEffect(() => {
+    setSelectedSearchColumnId(null);
+  }, [normalizedSearchQuery]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -472,21 +481,15 @@ export function Board({ board, setBoard }: BoardProps) {
 
       return (
         <Card
-          className={`w-80 h-full flex flex-col apple-card opacity-80 ${boardThemeClass}`}
+          className={`w-80 apple-card opacity-90 ${boardThemeClass}`}
         >
           <CardHeader className="p-3 pb-0 flex flex-row items-center space-y-0">
             <CardTitle className="text-sm font-medium flex-1 truncate">
               {column.name}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-3 flex-1 overflow-hidden">
-            <div className="space-y-2 min-h-[200px]">
-              {column.zists.map((zist) => (
-                <div key={zist.id} className="opacity-50">
-                  <Zist zist={zist} board={board} setBoard={setBoard} />
-                </div>
-              ))}
-            </div>
+          <CardContent className="p-3 text-sm text-muted-foreground">
+            {column.zists.length} card{column.zists.length === 1 ? "" : "s"}
           </CardContent>
         </Card>
       );
@@ -505,14 +508,117 @@ export function Board({ board, setBoard }: BoardProps) {
 
       if (!activeZist) return null;
 
-      return <Zist zist={activeZist} board={board} setBoard={setBoard} />;
+      return (
+        <Card className={`w-[320px] apple-card opacity-90 ${boardThemeClass}`}>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-sm font-medium">
+              {activeZist.title}
+            </CardTitle>
+          </CardHeader>
+          {activeZist.description && (
+            <CardContent className="p-3 pt-2">
+              <p className="text-xs text-muted-foreground line-clamp-3">
+                {activeZist.description}
+              </p>
+            </CardContent>
+          )}
+        </Card>
+      );
     }
 
     return null;
   };
 
+  const searchResults = normalizedSearchQuery
+    ? board.columns.flatMap((column) =>
+        column.zists
+          .filter(
+            (zist) =>
+              zist.title.toLowerCase().includes(normalizedSearchQuery) ||
+              zist.description.toLowerCase().includes(normalizedSearchQuery) ||
+              zist.labels.some((label) =>
+                label.toLowerCase().includes(normalizedSearchQuery)
+              )
+          )
+          .map((zist) => ({
+            column,
+            zist,
+          }))
+      )
+    : [];
+
+  const columnSearchCounts = board.columns
+    .map((column) => ({
+      column,
+      count: searchResults.filter((result) => result.column.id === column.id)
+        .length,
+    }))
+    .filter((result) => result.count > 0);
+
+  const visibleSearchResults = selectedSearchColumnId
+    ? searchResults.filter((result) => result.column.id === selectedSearchColumnId)
+    : searchResults;
+
+  if (normalizedSearchQuery) {
+    return (
+      <div className={`flex-1 min-h-0 overflow-hidden ${boardThemeClass} rounded-xl`}>
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="shrink-0 px-4 pt-4">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              <Button
+                size="sm"
+                variant={selectedSearchColumnId === null ? "default" : "outline"}
+                onClick={() => setSelectedSearchColumnId(null)}
+              >
+                All Matches ({searchResults.length})
+              </Button>
+              {columnSearchCounts.map(({ column, count }) => (
+                <Button
+                  key={column.id}
+                  size="sm"
+                  variant={
+                    selectedSearchColumnId === column.id ? "default" : "outline"
+                  }
+                  onClick={() => setSelectedSearchColumnId(column.id)}
+                >
+                  {column.name} ({count})
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+            <div className="mb-4 text-sm text-muted-foreground">
+              {visibleSearchResults.length} result
+              {visibleSearchResults.length === 1 ? "" : "s"} for "{searchQuery}"
+            </div>
+
+            {visibleSearchResults.length === 0 ? (
+              <div className="flex h-full min-h-[240px] items-center justify-center rounded-xl border border-dashed bg-muted/20">
+                <p className="text-sm text-muted-foreground">
+                  No cards matched this search.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleSearchResults.map(({ column, zist }) => (
+                  <div key={zist.id} className="space-y-2">
+                    <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      {column.name}
+                    </div>
+                    <Zist zist={zist} board={board} setBoard={setBoard} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`h-full ${boardThemeClass} rounded-xl`}>
+    <div className={`flex-1 min-h-0 overflow-hidden ${boardThemeClass} rounded-xl`}>
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetectionStrategy}
@@ -520,7 +626,7 @@ export function Board({ board, setBoard }: BoardProps) {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto h-full p-4 ">
+        <div className="flex h-full min-h-0 items-stretch gap-4 overflow-x-auto overflow-y-hidden p-4">
           <SortableContext
             items={board.columns.map((col) => col.id)}
             strategy={horizontalListSortingStrategy}
@@ -546,7 +652,7 @@ export function Board({ board, setBoard }: BoardProps) {
           </SortableContext>
 
           {addingColumn ? (
-            <div className="w-80 flex-shrink-0">
+            <div className="w-80 flex-shrink-0 self-start">
               <Card className={`apple-card ${boardThemeClass}`}>
                 <CardHeader className="p-3 pb-0">
                   <Input
@@ -588,7 +694,7 @@ export function Board({ board, setBoard }: BoardProps) {
               </Card>
             </div>
           ) : (
-            <div className="w-80 flex-shrink-0">
+            <div className="w-80 flex-shrink-0 self-start">
               <Button
                 variant="outline"
                 className="h-12 w-full mt-1"
