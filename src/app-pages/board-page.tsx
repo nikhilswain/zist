@@ -9,6 +9,8 @@ import { getBoard } from "@/lib/db";
 import type { BoardType } from "@/lib/types";
 import { toast } from "sonner";
 
+const LAST_OPENED_BOARD_KEY = "zist-last-board";
+
 export default function BoardPage() {
   const [board, setBoard] = useState<BoardType | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,6 +25,7 @@ export default function BoardPage() {
           const boardData = await getBoard(boardId as string);
           if (boardData) {
             setBoard(boardData);
+            localStorage.setItem(LAST_OPENED_BOARD_KEY, boardData.id);
           } else {
             toast.error("Board not found", {
               description: "The requested board could not be found",
@@ -69,7 +72,6 @@ export default function BoardPage() {
 
   if (!board) return null;
 
-  // Get the board theme class
   const boardThemeClass = board.theme ? `board-theme-${board.theme}` : "";
 
   return (
