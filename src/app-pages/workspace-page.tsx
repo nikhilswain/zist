@@ -65,7 +65,7 @@ export default function WorkspacePage() {
   const [isRestoring, setIsRestoring] = useState<string | null>(null);
   const [confirmBoardName, setConfirmBoardName] = useState("");
   const [confirmBoardError, setConfirmBoardError] = useState<string | null>(
-    null
+    null,
   );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null);
 
@@ -83,7 +83,7 @@ export default function WorkspacePage() {
 
             // Fetch archived boards
             const archivedBoardsData = await getArchivedBoardsByWorkspace(
-              workspaceData.id
+              workspaceData.id,
             );
             setArchivedBoards(archivedBoardsData);
           } else {
@@ -115,13 +115,13 @@ export default function WorkspacePage() {
 
   const handleConfirmDeleteBoard = async (
     boardId: string,
-    boardName: string
+    boardName: string,
   ) => {
     console.log(
       "handleConfirmDeleteBoard called with id:",
       boardId,
       "name:",
-      boardName
+      boardName,
     );
     if (confirmBoardName !== boardName) {
       setConfirmBoardError("Board name doesn't match");
@@ -144,10 +144,10 @@ export default function WorkspacePage() {
 
       // Update the boards state after successful deletion
       setBoards((prevBoards) =>
-        prevBoards.filter((board) => board.id !== boardId)
+        prevBoards.filter((board) => board.id !== boardId),
       );
       setArchivedBoards((prevBoards) =>
-        prevBoards.filter((board) => board.id !== boardId)
+        prevBoards.filter((board) => board.id !== boardId),
       );
 
       toast.success("Board deleted successfully");
@@ -172,7 +172,7 @@ export default function WorkspacePage() {
 
       // Update the boards state after successful archiving
       setBoards((prevBoards) =>
-        prevBoards.filter((board) => board.id !== boardId)
+        prevBoards.filter((board) => board.id !== boardId),
       );
 
       // Add to archived boards
@@ -199,7 +199,7 @@ export default function WorkspacePage() {
 
       // Update the archived boards state
       setArchivedBoards((prevBoards) =>
-        prevBoards.filter((board) => board.id !== boardId)
+        prevBoards.filter((board) => board.id !== boardId),
       );
 
       // Add back to active boards
@@ -241,10 +241,10 @@ export default function WorkspacePage() {
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredBoards = boards.filter((board) =>
-    board.name.toLowerCase().includes(normalizedSearchQuery)
+    board.name.toLowerCase().includes(normalizedSearchQuery),
   );
   const filteredArchivedBoards = archivedBoards.filter((board) =>
-    board.name.toLowerCase().includes(normalizedSearchQuery)
+    board.name.toLowerCase().includes(normalizedSearchQuery),
   );
 
   const renderBoardCard = (board: BoardType, isArchived = false) => {
@@ -258,12 +258,12 @@ export default function WorkspacePage() {
         {!isArchived && (
           <a
             href={`/board/${board.id}`}
-            className="absolute inset-0 z-10 rounded-xl"
+            className="absolute inset-0 z-0 rounded-xl"
             aria-label={`Open board ${board.name}`}
           />
         )}
-        <CardHeader className="relative z-0 flex flex-row items-center justify-between pb-2">
-          <div>
+        <CardHeader className="relative flex flex-row items-center justify-between pb-2 pointer-events-none">
+          <div className="pointer-events-none">
             <CardTitle>{board.name}</CardTitle>
             <CardDescription>
               {board.columns.length} columns •{" "}
@@ -271,7 +271,7 @@ export default function WorkspacePage() {
               tasks
             </CardDescription>
           </div>
-          <div className="relative z-20" onClick={(e) => e.stopPropagation()}>
+           <div className="relative z-10 pointer-events-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -306,11 +306,7 @@ export default function WorkspacePage() {
                 )}
                 <DropdownMenuItem
                   className="text-destructive"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openDeleteDialog(board.id);
-                  }}
+                  onClick={() => openDeleteDialog(board.id)}
                 >
                   <Trash2 className="mr-2 h-4 w-4" /> Delete
                 </DropdownMenuItem>
@@ -318,7 +314,7 @@ export default function WorkspacePage() {
             </DropdownMenu>
           </div>
         </CardHeader>
-        <CardContent className="relative z-0 pt-0">
+        <CardContent className="relative z-0 pt-0 pointer-events-none">
           <div className="flex justify-between text-sm text-muted-foreground">
             <div>Created: {new Date(board.createdAt).toLocaleDateString()}</div>
             <div>Updated: {new Date(board.updatedAt).toLocaleDateString()}</div>
@@ -439,7 +435,9 @@ export default function WorkspacePage() {
 
         <Tabs
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value as "active" | "archived")}
+          onValueChange={(value) =>
+            setActiveTab(value as "active" | "archived")
+          }
           className="w-full"
         >
           <TabsList className="mb-4">
@@ -494,13 +492,13 @@ export default function WorkspacePage() {
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredArchivedBoards.map((board) =>
-                  renderBoardCard(board, true)
+                  renderBoardCard(board, true),
                 )}
               </div>
             ) : (
               <div className="space-y-2 border rounded-md overflow-hidden">
                 {filteredArchivedBoards.map((board) =>
-                  renderBoardList(board, true)
+                  renderBoardList(board, true),
                 )}
               </div>
             )}

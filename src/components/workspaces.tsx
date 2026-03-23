@@ -103,7 +103,7 @@ export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
       .toLowerCase()
       .includes(normalizedSearchQuery);
     const matchedBoards = workspaceBoards.filter((board) =>
-      board.name.toLowerCase().includes(normalizedSearchQuery)
+      board.name.toLowerCase().includes(normalizedSearchQuery),
     );
 
     return {
@@ -120,7 +120,7 @@ export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
     const workspaceBoards = boards[id] || [];
     if (workspaceBoards.length > 0) {
       toast.error(
-        "Cannot delete workspace with boards. Please delete all boards first."
+        "Cannot delete workspace with boards. Please delete all boards first.",
       );
       setIsDeleting(null);
       setDeleteDialogOpen(null);
@@ -138,7 +138,7 @@ export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
 
           // Update state after successful deletion
           setWorkspaces((prevWorkspaces) =>
-            prevWorkspaces.filter((workspace) => workspace.id !== id)
+            prevWorkspaces.filter((workspace) => workspace.id !== id),
           );
 
           // Clean up boards state
@@ -172,7 +172,7 @@ export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
       "handleConfirmDeleteWorkspace called with id:",
       id,
       "name:",
-      name
+      name,
     );
     if (confirmWorkspaceName !== name) {
       setConfirmError("Workspace name doesn't match");
@@ -206,7 +206,9 @@ export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
       await updateWorkspace(updatedWorkspace);
 
       setWorkspaces(
-        workspaces.map((w) => (w.id === editWorkspaceId ? updatedWorkspace : w))
+        workspaces.map((w) =>
+          w.id === editWorkspaceId ? updatedWorkspace : w,
+        ),
       );
 
       setEditWorkspaceOpen(false);
@@ -239,7 +241,7 @@ export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
     .map(getWorkspaceSearchMatch)
     .filter(
       ({ workspaceMatches, matchedBoards }) =>
-        !normalizedSearchQuery || workspaceMatches || matchedBoards.length > 0
+        !normalizedSearchQuery || workspaceMatches || matchedBoards.length > 0,
     );
 
   if (loading) {
@@ -295,98 +297,91 @@ export function Workspaces({ searchQuery = "" }: WorkspacesProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredWorkspaces.map(
             ({ workspace, workspaceMatches, matchedBoards }) => (
-            <Card
-              key={workspace.id}
-              className={`relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
-                isDeleting === workspace.id || isPending
-                  ? "opacity-50 pointer-events-none"
-                  : ""
-              }`}
-            >
-              <a
-                href={`/workspace/${workspace.id}`}
-                className="absolute inset-0 z-10 rounded-xl"
-                aria-label={`Open workspace ${workspace.name}`}
-              />
-              <CardHeader
-                className={`relative z-0 flex flex-row items-center justify-between pb-2 ${
+              <Card
+                key={workspace.id}
+                className={`relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer ${
                   isDeleting === workspace.id || isPending
-                    ? "pointer-events-none"
+                    ? "opacity-50 pointer-events-none"
                     : ""
                 }`}
               >
-                <div>
-                  <CardTitle>{workspace.name}</CardTitle>
-                  <CardDescription>
-                    {boards[workspace.id]?.length || 0} boards
-                  </CardDescription>
-                  {normalizedSearchQuery && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {workspaceMatches && (
-                        <span className="rounded-full border px-2 py-0.5">
-                          Workspace name match
-                        </span>
-                      )}
-                      {matchedBoards.length > 0 && (
-                        <span className="rounded-full border px-2 py-0.5">
-                          Matched boards:{" "}
-                          {matchedBoards
-                            .slice(0, 2)
-                            .map((board) => board.name)
-                            .join(", ")}
-                          {matchedBoards.length > 2
-                            ? ` +${matchedBoards.length - 2}`
-                            : ""}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div
-                  className="relative z-20"
-                  onClick={(e) => e.stopPropagation()}
+                <a
+                  href={`/workspace/${workspace.id}`}
+                  className="absolute inset-0 z-0 rounded-xl"
+                  aria-label={`Open workspace ${workspace.name}`}
+                />
+                <CardHeader
+                  className={`relative z-0 flex flex-row items-center justify-between pb-2 pointer-events-none ${
+                    isDeleting === workspace.id || isPending
+                      ? "pointer-events-none"
+                      : ""
+                  }`}
                 >
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={isDeleting === workspace.id || isPending}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => openEditWorkspaceDialog(workspace)}
-                        disabled={isDeleting === workspace.id || isPending}
-                      >
-                        <Edit className="mr-2 h-4 w-4" /> Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <a href={`/workspace/${workspace.id}`}>
-                          <Folder className="mr-2 h-4 w-4" /> View Boards
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          openDeleteDialog(workspace.id);
-                        }}
-                        disabled={isDeleting === workspace.id || isPending}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-            </Card>
-            )
+                  <div className="pointer-events-none">
+                    <CardTitle>{workspace.name}</CardTitle>
+                    <CardDescription>
+                      {boards[workspace.id]?.length || 0} boards
+                    </CardDescription>
+                    {normalizedSearchQuery && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground pointer-events-none">
+                        {workspaceMatches && (
+                          <span className="rounded-full border px-2 py-0.5">
+                            Workspace name match
+                          </span>
+                        )}
+                        {matchedBoards.length > 0 && (
+                          <span className="rounded-full border px-2 py-0.5">
+                            Matched boards:{" "}
+                            {matchedBoards
+                              .slice(0, 2)
+                              .map((board) => board.name)
+                              .join(", ")}
+                            {matchedBoards.length > 2
+                              ? ` +${matchedBoards.length - 2}`
+                              : ""}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative z-10 pointer-events-auto">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={isDeleting === workspace.id || isPending}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => openEditWorkspaceDialog(workspace)}
+                          disabled={isDeleting === workspace.id || isPending}
+                        >
+                          <Edit className="mr-2 h-4 w-4" /> Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <a href={`/workspace/${workspace.id}`}>
+                            <Folder className="mr-2 h-4 w-4" /> View Boards
+                          </a>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => openDeleteDialog(workspace.id)}
+                          disabled={isDeleting === workspace.id || isPending}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+              </Card>
+            ),
           )}
         </div>
       )}
