@@ -11,6 +11,8 @@ interface SortableZistProps {
   board: BoardType;
   setBoard: (board: BoardType) => void;
   columnId: string;
+  forceOpen?: boolean;
+  onDetailOpenChange?: (open: boolean, zistId: string) => void;
 }
 
 export function SortableZist({
@@ -19,6 +21,8 @@ export function SortableZist({
   board,
   setBoard,
   columnId,
+  forceOpen = false,
+  onDetailOpenChange,
 }: SortableZistProps) {
   const {
     attributes,
@@ -52,7 +56,13 @@ export function SortableZist({
       {...listeners}
       className={`${isDragging ? "z-10" : ""}`}
     >
-      <Zist zist={zist} board={board} setBoard={setBoard} />
+      <Zist
+        zist={zist}
+        board={board}
+        setBoard={setBoard}
+        forceOpen={forceOpen}
+        onDetailOpenChange={onDetailOpenChange}
+      />
     </div>
   );
 }

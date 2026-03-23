@@ -47,6 +47,8 @@ interface SortableColumnProps {
   setEditingColumnName: (name: string) => void;
   handleSaveColumnEdit: () => void;
   isUpdatingColumn: boolean;
+  openCardId?: string | null;
+  onOpenCardChange?: (cardId: string | null) => void;
 }
 
 export function SortableColumn({
@@ -63,6 +65,8 @@ export function SortableColumn({
   setEditingColumnName,
   handleSaveColumnEdit,
   isUpdatingColumn,
+  openCardId = null,
+  onOpenCardChange,
 }: SortableColumnProps) {
   const {
     attributes,
@@ -250,6 +254,14 @@ export function SortableColumn({
                       board={board}
                       setBoard={setBoard}
                       columnId={column.id}
+                      forceOpen={openCardId === zist.id}
+                      onDetailOpenChange={(open, zistId) => {
+                        if (open) {
+                          onOpenCardChange?.(zistId);
+                        } else if (openCardId === zistId) {
+                          onOpenCardChange?.(null);
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -300,3 +312,5 @@ export function SortableColumn({
     </div>
   );
 }
+
+

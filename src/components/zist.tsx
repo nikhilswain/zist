@@ -1,4 +1,4 @@
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Clock,
   CheckSquare,
@@ -54,9 +54,17 @@ interface ZistProps {
   zist: ZistType;
   board: BoardType;
   setBoard: (board: BoardType) => void;
+  forceOpen?: boolean;
+  onDetailOpenChange?: (open: boolean, zistId: string) => void;
 }
 
-export function Zist({ zist, board, setBoard }: ZistProps) {
+export function Zist({
+  zist,
+  board,
+  setBoard,
+  forceOpen = false,
+  onDetailOpenChange,
+}: ZistProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -214,6 +222,17 @@ export function Zist({ zist, board, setBoard }: ZistProps) {
   const dueDateStatus = getDueDateStatus();
   const isDisabled = isDeleting || isPending || isUpdating;
 
+  useEffect(() => {
+    if (forceOpen && !detailOpen && !isDisabled) {
+      setDetailOpen(true);
+    }
+  }, [detailOpen, forceOpen, isDisabled]);
+
+  const handleDetailOpenChange = (open: boolean) => {
+    setDetailOpen(open);
+    onDetailOpenChange?.(open, zist.id);
+  };
+
   // Get the first image for preview
   const previewImage =
     zist.images && zist.images.length > 0 ? zist.images[0] : null;
@@ -224,7 +243,7 @@ export function Zist({ zist, board, setBoard }: ZistProps) {
         className={`cursor-pointer hover:shadow-md transition-shadow ${boardThemeClass} ${
           isDisabled ? "opacity-50 pointer-events-none" : ""
         }`}
-        onClick={() => !isDisabled && setDetailOpen(true)}
+        onClick={() => !isDisabled && handleDetailOpenChange(true)}
       >
         {/* Cover Image or First Uploaded Image */}
         {(zist.coverImage || previewImage) && (
@@ -332,7 +351,7 @@ export function Zist({ zist, board, setBoard }: ZistProps) {
 
       <ZistDetailView
         open={detailOpen && !isDisabled}
-        onOpenChange={setDetailOpen}
+        onOpenChange={handleDetailOpenChange}
         zist={zist}
         board={board}
         setBoard={setBoard}
@@ -415,3 +434,5 @@ export function Zist({ zist, board, setBoard }: ZistProps) {
     </>
   );
 }
+
+

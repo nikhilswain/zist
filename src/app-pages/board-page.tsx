@@ -10,10 +10,12 @@ import type { BoardType } from "@/lib/types";
 import { toast } from "sonner";
 
 const LAST_OPENED_BOARD_KEY = "zist-last-board";
+const OPEN_CARD_EVENT = "zist:open-card";
 
 export default function BoardPage() {
   const [board, setBoard] = useState<BoardType | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const boardId = window.location.pathname.split("/").pop() || {};
@@ -25,6 +27,8 @@ export default function BoardPage() {
           const boardData = await getBoard(boardId as string);
           if (boardData) {
             setBoard(boardData);
+            const currentUrl = new URL(window.location.href);
+            setOpenCardId(currentUrl.searchParams.get("card"));
             localStorage.setItem(LAST_OPENED_BOARD_KEY, boardData.id);
           } else {
             toast.error("Board not found", {
@@ -46,6 +50,44 @@ export default function BoardPage() {
 
     fetchBoard();
   }, [boardId]);
+
+  useEffect(() => {
+    const handleOpenCard = (event: Event) => {
+      const customEvent = event as CustomEvent<{ boardId: string; cardId: string }>;
+
+      if (!customEvent.detail || customEvent.detail.boardId !== boardId) {
+        return;
+      }
+
+      setSearchQuery("");
+      setOpenCardId(customEvent.detail.cardId);
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("card", customEvent.detail.cardId);
+      window.history.replaceState({}, "", url.toString());
+    };
+
+    window.addEventListener(OPEN_CARD_EVENT, handleOpenCard as EventListener);
+
+    return () => {
+      window.removeEventListener(OPEN_CARD_EVENT, handleOpenCard as EventListener);
+    };
+  }, [boardId]);
+
+  const handleOpenCardChange = (cardId: string | null) => {
+    setOpenCardId(cardId);
+
+    const url = new URL(window.location.href);
+
+    if (cardId) {
+      url.searchParams.set("card", cardId);
+      setSearchQuery("");
+    } else {
+      url.searchParams.delete("card");
+    }
+
+    window.history.replaceState({}, "", url.toString());
+  };
 
   if (loading) {
     return (
@@ -85,7 +127,13 @@ export default function BoardPage() {
         <div className="shrink-0">
           <BoardHeader board={board} setBoard={setBoard} />
         </div>
-        <Board board={board} setBoard={setBoard} searchQuery={searchQuery} />
+        <Board
+          board={board}
+          setBoard={setBoard}
+          searchQuery={searchQuery}
+          openCardId={openCardId}
+          onOpenCardChange={handleOpenCardChange}
+        />
       </main>
     </div>
   );

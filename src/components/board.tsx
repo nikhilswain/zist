@@ -39,9 +39,17 @@ interface BoardProps {
   board: BoardType;
   setBoard: (board: BoardType) => void;
   searchQuery?: string;
+  openCardId?: string | null;
+  onOpenCardChange?: (cardId: string | null) => void;
 }
 
-export function Board({ board, setBoard, searchQuery = "" }: BoardProps) {
+export function Board({
+  board,
+  setBoard,
+  searchQuery = "",
+  openCardId = null,
+  onOpenCardChange,
+}: BoardProps) {
   const [newColumnName, setNewColumnName] = useState("");
   const [addingColumn, setAddingColumn] = useState(false);
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
@@ -606,7 +614,19 @@ export function Board({ board, setBoard, searchQuery = "" }: BoardProps) {
                     <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                       {column.name}
                     </div>
-                    <Zist zist={zist} board={board} setBoard={setBoard} />
+                    <Zist
+                      zist={zist}
+                      board={board}
+                      setBoard={setBoard}
+                      forceOpen={openCardId === zist.id}
+                      onDetailOpenChange={(open, zistId) => {
+                        if (open) {
+                          onOpenCardChange?.(zistId);
+                        } else if (openCardId === zistId) {
+                          onOpenCardChange?.(null);
+                        }
+                      }}
+                    />
                   </div>
                 ))}
               </div>
@@ -647,6 +667,8 @@ export function Board({ board, setBoard, searchQuery = "" }: BoardProps) {
                 setEditingColumnName={setEditingColumnName}
                 handleSaveColumnEdit={handleSaveColumnEdit}
                 isUpdatingColumn={isUpdatingColumn}
+                openCardId={openCardId}
+                onOpenCardChange={onOpenCardChange}
               />
             ))}
           </SortableContext>
@@ -724,3 +746,5 @@ export function Board({ board, setBoard, searchQuery = "" }: BoardProps) {
     </div>
   );
 }
+
+
