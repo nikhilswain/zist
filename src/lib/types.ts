@@ -17,6 +17,29 @@ export type BoardType = {
   theme?: string;
 };
 
+export type BoardViewSort =
+  | "manual"
+  | "title-asc"
+  | "title-desc"
+  | "updated-desc"
+  | "created-desc";
+
+export type BoardViewState = {
+  query: string;
+  selectedColumnId: string | null;
+  sortMode: BoardViewSort;
+  activeViewId: string | null;
+};
+
+export type SavedBoardView = {
+  id: string;
+  boardId: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  state: Omit<BoardViewState, "activeViewId">;
+};
+
 export type ColumnType = {
   id: string;
   name: string;

@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Edit, Trash2, Archive, MoreHorizontal, Palette } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  Archive,
+  MoreHorizontal,
+  Palette,
+  PanelsTopLeft,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -35,9 +42,16 @@ import { updateBoard, archiveBoard, deleteBoard } from "@/lib/db";
 interface BoardHeaderProps {
   board: BoardType;
   setBoard: (board: BoardType) => void;
+  areViewsOpen?: boolean;
+  onToggleViews?: () => void;
 }
 
-export function BoardHeader({ board, setBoard }: BoardHeaderProps) {
+export function BoardHeader({
+  board,
+  setBoard,
+  areViewsOpen = false,
+  onToggleViews,
+}: BoardHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [boardName, setBoardName] = useState(board.name);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
@@ -182,6 +196,15 @@ export function BoardHeader({ board, setBoard }: BoardHeaderProps) {
         >
           <Palette className="h-4 w-4" />
           Theme
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={onToggleViews}
+          className="gap-2"
+        >
+          <PanelsTopLeft className="h-4 w-4" />
+          {areViewsOpen ? "Hide Views" : "Views"}
         </Button>
 
         <DropdownMenu>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   DndContext,
   closestCorners,
@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Zist } from "@/components/zist";
 import { SortableColumn } from "@/components/sortable-column";
 import { CreateZistDialog } from "@/components/create-zist-dialog";
-import type { BoardType, ZistType } from "@/lib/types";
+import type { BoardType, BoardViewSort, ZistType } from "@/lib/types";
 import {
   updateBoard,
   createColumn,
@@ -39,6 +39,9 @@ interface BoardProps {
   board: BoardType;
   setBoard: (board: BoardType) => void;
   searchQuery?: string;
+  selectedSearchColumnId?: string | null;
+  onSelectedSearchColumnIdChange?: (columnId: string | null) => void;
+  sortMode?: BoardViewSort;
   openCardId?: string | null;
   onOpenCardChange?: (cardId: string | null) => void;
 }
@@ -47,6 +50,9 @@ export function Board({
   board,
   setBoard,
   searchQuery = "",
+  selectedSearchColumnId = null,
+  onSelectedSearchColumnIdChange,
+  sortMode = "manual",
   openCardId = null,
   onOpenCardChange,
 }: BoardProps) {
@@ -62,16 +68,9 @@ export function Board({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<"column" | "zist" | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
-  const [selectedSearchColumnId, setSelectedSearchColumnId] = useState<
-    string | null
-  >(null);
 
   const boardThemeClass = useThemeClass(board.theme);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
-  useEffect(() => {
-    setSelectedSearchColumnId(null);
-  }, [normalizedSearchQuery]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -537,31 +536,79 @@ export function Board({
     return null;
   };
 
+  const sortZists = (zists: ZistType[]) => {
+    if (sortMode === "manual") {
+      return zists;
+    }
+
+    return [...zists].sort((left, right) => {
+      if (sortMode === "title-asc") {
+        return left.title.localeCompare(right.title);
+      }
+
+      if (sortMode === "title-desc") {
+        return right.title.localeCompare(left.title);
+      }
+
+      if (sortMode === "created-desc") {
+        return right.createdAt - left.createdAt;
+      }
+
+      return right.updatedAt - left.updatedAt;
+    });
+  };
+
+  const visibleColumns = (selectedSearchColumnId
+    ? board.columns.filter((column) => column.id === selectedSearchColumnId)
+    : board.columns
+  ).map((column) => ({
+    ...column,
+    zists: sortZists(column.zists),
+  }));
+
+  const sortSearchResults = (
+    results: Array<{ column: (typeof board.columns)[number]; zist: ZistType }>
+  ) => {
+    if (sortMode === "manual") {
+      return results;
+    }
+
+    return [...results].sort((left, right) => {
+      if (sortMode === "title-asc") {
+        return left.zist.title.localeCompare(right.zist.title);
+      }
+
+      if (sortMode === "title-desc") {
+        return right.zist.title.localeCompare(left.zist.title);
+      }
+
+      if (sortMode === "created-desc") {
+        return right.zist.createdAt - left.zist.createdAt;
+      }
+
+      return right.zist.updatedAt - left.zist.updatedAt;
+    });
+  };
+
   const searchResults = normalizedSearchQuery
-    ? board.columns.flatMap((column) =>
-        column.zists
-          .filter(
-            (zist) =>
-              zist.title.toLowerCase().includes(normalizedSearchQuery) ||
-              zist.description.toLowerCase().includes(normalizedSearchQuery) ||
-              zist.labels.some((label) =>
-                label.toLowerCase().includes(normalizedSearchQuery)
-              )
-          )
-          .map((zist) => ({
-            column,
-            zist,
-          }))
+    ? sortSearchResults(
+        visibleColumns.flatMap((column) =>
+          column.zists
+            .filter(
+              (zist) =>
+                zist.title.toLowerCase().includes(normalizedSearchQuery) ||
+                zist.description.toLowerCase().includes(normalizedSearchQuery) ||
+                zist.labels.some((label) =>
+                  label.toLowerCase().includes(normalizedSearchQuery)
+                )
+            )
+            .map((zist) => ({
+              column,
+              zist,
+            }))
+        )
       )
     : [];
-
-  const columnSearchCounts = board.columns
-    .map((column) => ({
-      column,
-      count: searchResults.filter((result) => result.column.id === column.id)
-        .length,
-    }))
-    .filter((result) => result.count > 0);
 
   const visibleSearchResults = selectedSearchColumnId
     ? searchResults.filter((result) => result.column.id === selectedSearchColumnId)
@@ -571,32 +618,8 @@ export function Board({
     return (
       <div className={`flex-1 min-h-0 overflow-hidden ${boardThemeClass} rounded-xl`}>
         <div className="flex h-full min-h-0 flex-col">
-          <div className="shrink-0 px-4 pt-4">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              <Button
-                size="sm"
-                variant={selectedSearchColumnId === null ? "default" : "outline"}
-                onClick={() => setSelectedSearchColumnId(null)}
-              >
-                All Matches ({searchResults.length})
-              </Button>
-              {columnSearchCounts.map(({ column, count }) => (
-                <Button
-                  key={column.id}
-                  size="sm"
-                  variant={
-                    selectedSearchColumnId === column.id ? "default" : "outline"
-                  }
-                  onClick={() => setSelectedSearchColumnId(column.id)}
-                >
-                  {column.name} ({count})
-                </Button>
-              ))}
-            </div>
-          </div>
-
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-            <div className="mb-4 text-sm text-muted-foreground">
+            <div className="mb-4 pt-4 text-sm text-muted-foreground">
               {visibleSearchResults.length} result
               {visibleSearchResults.length === 1 ? "" : "s"} for "{searchQuery}"
             </div>
@@ -648,10 +671,10 @@ export function Board({
       >
         <div className="flex h-full min-h-0 items-stretch gap-4 overflow-x-auto overflow-y-hidden p-4">
           <SortableContext
-            items={board.columns.map((col) => col.id)}
+            items={visibleColumns.map((col) => col.id)}
             strategy={horizontalListSortingStrategy}
           >
-            {board.columns.map((column) => (
+            {visibleColumns.map((column) => (
               <SortableColumn
                 key={column.id}
                 id={column.id}
@@ -746,5 +769,8 @@ export function Board({
     </div>
   );
 }
+
+
+
 
 

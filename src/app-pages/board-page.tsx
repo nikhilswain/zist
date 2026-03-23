@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Board } from "@/components/board";
 import { Header } from "@/components/header";
 import { BoardHeader } from "@/components/board-header";
+import { BoardViewBar } from "@/components/board-view-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getBoard } from "@/lib/db";
-import type { BoardType } from "@/lib/types";
+import {
+  clearStoredBoardViewState,
+  createSavedBoardView,
+  DEFAULT_BOARD_VIEW_STATE,
+  getSavedBoardViews,
+  getStoredBoardViewState,
+  sanitizeBoardViewState,
+  storeBoardViewState,
+  storeSavedBoardViews,
+} from "@/lib/board-views";
+import type { BoardType, BoardViewState, SavedBoardView } from "@/lib/types";
 import { toast } from "sonner";
 
 const LAST_OPENED_BOARD_KEY = "zist-last-board";
@@ -14,9 +25,14 @@ const OPEN_CARD_EVENT = "zist:open-card";
 
 export default function BoardPage() {
   const [board, setBoard] = useState<BoardType | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [viewState, setViewState] = useState<BoardViewState>(
+    DEFAULT_BOARD_VIEW_STATE,
+  );
+  const [savedViews, setSavedViews] = useState<SavedBoardView[]>([]);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [areViewsOpen, setAreViewsOpen] = useState(false);
+  const preserveViewStateRef = useRef(false);
 
   const boardId = window.location.pathname.split("/").pop() || {};
 
@@ -26,7 +42,23 @@ export default function BoardPage() {
         if (boardId) {
           const boardData = await getBoard(boardId as string);
           if (boardData) {
+            const storedViews = getSavedBoardViews(boardData.id);
+            const storedViewState = getStoredBoardViewState(boardData);
+            const activeViewStillExists =
+              storedViewState.activeViewId === null ||
+              storedViews.some(
+                (view) => view.id === storedViewState.activeViewId,
+              );
+
             setBoard(boardData);
+            setSavedViews(storedViews);
+            setViewState({
+              ...storedViewState,
+              activeViewId: activeViewStillExists
+                ? storedViewState.activeViewId
+                : null,
+            });
+
             const currentUrl = new URL(window.location.href);
             setOpenCardId(currentUrl.searchParams.get("card"));
             localStorage.setItem(LAST_OPENED_BOARD_KEY, boardData.id);
@@ -53,13 +85,20 @@ export default function BoardPage() {
 
   useEffect(() => {
     const handleOpenCard = (event: Event) => {
-      const customEvent = event as CustomEvent<{ boardId: string; cardId: string }>;
+      const customEvent = event as CustomEvent<{
+        boardId: string;
+        cardId: string;
+      }>;
 
       if (!customEvent.detail || customEvent.detail.boardId !== boardId) {
         return;
       }
 
-      setSearchQuery("");
+      setViewState((currentState) => ({
+        ...currentState,
+        query: "",
+        activeViewId: null,
+      }));
       setOpenCardId(customEvent.detail.cardId);
 
       const url = new URL(window.location.href);
@@ -70,9 +109,46 @@ export default function BoardPage() {
     window.addEventListener(OPEN_CARD_EVENT, handleOpenCard as EventListener);
 
     return () => {
-      window.removeEventListener(OPEN_CARD_EVENT, handleOpenCard as EventListener);
+      window.removeEventListener(
+        OPEN_CARD_EVENT,
+        handleOpenCard as EventListener,
+      );
     };
   }, [boardId]);
+
+  useEffect(() => {
+    if (!board) {
+      return;
+    }
+
+    storeBoardViewState(board.id, viewState);
+  }, [board, viewState]);
+
+  useEffect(() => {
+    preserveViewStateRef.current = false;
+
+    const handleBeforeUnload = () => {
+      preserveViewStateRef.current = true;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!board) {
+      return;
+    }
+
+    return () => {
+      if (!preserveViewStateRef.current) {
+        clearStoredBoardViewState(board.id);
+      }
+    };
+  }, [board]);
 
   const handleOpenCardChange = (cardId: string | null) => {
     setOpenCardId(cardId);
@@ -81,12 +157,124 @@ export default function BoardPage() {
 
     if (cardId) {
       url.searchParams.set("card", cardId);
-      setSearchQuery("");
+      setViewState((currentState) => ({
+        ...currentState,
+        query: "",
+        activeViewId: null,
+      }));
     } else {
       url.searchParams.delete("card");
     }
 
     window.history.replaceState({}, "", url.toString());
+  };
+
+  const handleApplySavedView = (view: SavedBoardView) => {
+    if (!board) {
+      return;
+    }
+
+    setViewState({
+      ...sanitizeBoardViewState(board, view.state),
+      activeViewId: view.id,
+    });
+  };
+
+  const handleSaveView = (name: string) => {
+    if (!board) {
+      return;
+    }
+
+    const nextView = createSavedBoardView(board.id, name, {
+      query: viewState.query,
+      selectedColumnId: viewState.selectedColumnId,
+      sortMode: viewState.sortMode,
+    });
+    const nextSavedViews = [nextView, ...savedViews];
+
+    storeSavedBoardViews(board.id, nextSavedViews);
+    setSavedViews(nextSavedViews);
+    setViewState((currentState) => ({
+      ...currentState,
+      activeViewId: nextView.id,
+    }));
+
+    toast.success("View saved", {
+      description: `"${name}" is ready to reuse on this board.`,
+    });
+  };
+
+  const handleUpdateActiveView = () => {
+    if (!board || !viewState.activeViewId) {
+      return;
+    }
+
+    const nextSavedViews = savedViews.map((view) =>
+      view.id === viewState.activeViewId
+        ? {
+            ...view,
+            updatedAt: Date.now(),
+            state: {
+              query: viewState.query,
+              selectedColumnId: viewState.selectedColumnId,
+              sortMode: viewState.sortMode,
+            },
+          }
+        : view,
+    );
+
+    storeSavedBoardViews(board.id, nextSavedViews);
+    setSavedViews(nextSavedViews);
+
+    toast.success("View updated", {
+      description: "Your saved board view now reflects the latest filters.",
+    });
+  };
+
+  const handleRenameView = (viewId: string, name: string) => {
+    if (!board) {
+      return;
+    }
+
+    const nextSavedViews = savedViews.map((view) =>
+      view.id === viewId
+        ? {
+            ...view,
+            name,
+            updatedAt: Date.now(),
+          }
+        : view,
+    );
+
+    storeSavedBoardViews(board.id, nextSavedViews);
+    setSavedViews(nextSavedViews);
+
+    toast.success("View renamed", {
+      description: `Saved as "${name}".`,
+    });
+  };
+
+  const handleDeleteView = (viewId: string) => {
+    if (!board) {
+      return;
+    }
+
+    const nextSavedViews = savedViews.filter((view) => view.id !== viewId);
+    storeSavedBoardViews(board.id, nextSavedViews);
+    setSavedViews(nextSavedViews);
+    setViewState((currentState) => ({
+      ...currentState,
+      activeViewId:
+        currentState.activeViewId === viewId ? null : currentState.activeViewId,
+    }));
+
+    toast.success("View deleted", {
+      description: "The saved view has been removed from this board.",
+    });
+  };
+
+  const handleResetView = () => {
+    setViewState(DEFAULT_BOARD_VIEW_STATE);
   };
 
   if (loading) {
@@ -119,18 +307,64 @@ export default function BoardPage() {
   return (
     <div className={`h-dvh overflow-hidden flex flex-col ${boardThemeClass}`}>
       <Header
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
+        searchValue={viewState.query}
+        onSearchChange={(query) =>
+          setViewState((currentState) => ({
+            ...currentState,
+            query,
+            activeViewId: null,
+          }))
+        }
         searchPlaceholder={`Search cards in ${board.name}`}
       />
       <main className="flex flex-1 min-h-0 flex-col overflow-hidden container mx-auto p-4">
         <div className="shrink-0">
-          <BoardHeader board={board} setBoard={setBoard} />
+          <BoardHeader
+            board={board}
+            setBoard={setBoard}
+            areViewsOpen={areViewsOpen}
+            onToggleViews={() => setAreViewsOpen((current) => !current)}
+          />
+          <BoardViewBar
+            board={board}
+            viewState={viewState}
+            savedViews={savedViews}
+            isOpen={areViewsOpen}
+            onApplyView={handleApplySavedView}
+            onSaveView={handleSaveView}
+            onUpdateActiveView={handleUpdateActiveView}
+            onRenameView={handleRenameView}
+            onDeleteView={handleDeleteView}
+            onResetView={handleResetView}
+            onSelectedColumnIdChange={(selectedColumnId) =>
+              setViewState((currentState) => ({
+                ...currentState,
+                selectedColumnId,
+                activeViewId: null,
+              }))
+            }
+            onSortModeChange={(sortMode) =>
+              setViewState((currentState) => ({
+                ...currentState,
+                sortMode,
+                activeViewId: null,
+              }))
+            }
+          />
         </div>
         <Board
           board={board}
           setBoard={setBoard}
-          searchQuery={searchQuery}
+          searchQuery={viewState.query}
+          selectedSearchColumnId={viewState.selectedColumnId}
+          onSelectedSearchColumnIdChange={(selectedColumnId) =>
+            setViewState((currentState) => ({
+              ...currentState,
+              selectedColumnId,
+              activeViewId: null,
+            }))
+          }
+          sortMode={viewState.sortMode}
           openCardId={openCardId}
           onOpenCardChange={handleOpenCardChange}
         />
